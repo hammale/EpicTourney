@@ -1,0 +1,8 @@
+name: EpicTourney
+main: me.hammale.epictourney.epictourney
+version: 1.0
+author: hammale
+commands:
+  tourney:
+    description:
+    usage: |
