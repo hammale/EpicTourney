@@ -32,10 +32,8 @@ public class EpicBlockListener extends BlockListener {
 				 p.sendMessage(ChatColor.RED + "No can do partner! You're in view mode.");
 			}
 			 if(e.getBlock().getTypeId() == 101){
-				 if(e.getBlock().getData() == 4){
 					 e.getPlayer().sendMessage("NO CAN DO PARTNER!");
 					 e.setCancelled(true);
-				 }
 			 }
 		 }
 	}  
