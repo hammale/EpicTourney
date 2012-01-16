@@ -1,7 +1,17 @@
 package me.hammale.epictourney;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -16,6 +26,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.Event.Priority;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -58,7 +71,8 @@ public class epictourney extends JavaPlugin {
 	
 	@Override
 	public void onDisable() {
-		PluginDescriptionFile pdfFile = this.getDescription();	
+		PluginDescriptionFile pdfFile = this.getDescription();
+		getServer().getScheduler().cancelTasks(this);
 		log.info("[EpicTourney] Version: " + pdfFile.getVersion() + " Disabled!");	
 	}
 	
@@ -134,10 +148,14 @@ public class epictourney extends JavaPlugin {
 		return false; 
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void teleportToWorldSpawn(World to) {
 		for(World w : getServer().getWorlds()){
 			for (Player p : w.getPlayers().toArray(new Player[0])) {
 				p.sendMessage(ChatColor.GREEN + "Tourney started! Teleporting...");
+				saveInventory(p);
+				p.getInventory().clear();
+				p.updateInventory();
 				p.teleport(to.getSpawnLocation());
 				p.setGameMode(GameMode.CREATIVE);
 				p.sendMessage(ChatColor.LIGHT_PURPLE + "Welcome to view mode! Tourney starts in " + getTime()/20 + " seconds!");
@@ -161,7 +179,7 @@ public class epictourney extends JavaPlugin {
 				    }
 				}, half);
 		}else{
-			cancelled = true;
+			cancelled = false;
 		}
 	}
 	
@@ -264,15 +282,83 @@ public class epictourney extends JavaPlugin {
 		
 	}
 
+	public void makeArena1(int i) {
+
+		int radius = getRadius()*i;
+		Block b = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock();
+		
+		Location l1 = b.getRelative(BlockFace.NORTH_WEST,radius).getLocation();
+		int x1 = (int) l1.getX();
+		int z1 = (int) l1.getZ();
+							
+		Location l2 = b.getRelative(BlockFace.NORTH_EAST,radius).getLocation();
+		
+		int x2 = (int) l2.getX();
+		int z2 = (int) l2.getZ();
+		
+		Location lo1 = getServer().getWorld("EpicTourney").getBlockAt(x1, 127, z1).getLocation();
+		Location lo2 = getServer().getWorld("EpicTourney").getBlockAt(x2, 1, z2).getLocation();
+	
+		loopThrough(lo1, lo2, getServer().getWorld("EpicTourney"));
+		
+		Location l3 = b.getRelative(BlockFace.SOUTH_WEST,radius).getLocation();
+		int x3 = (int) l3.getX();
+		int z3 = (int) l3.getZ();
+							
+		Location l4 = b.getRelative(BlockFace.SOUTH_EAST,radius).getLocation();				
+		int x4 = (int) l4.getX();
+		int z4 = (int) l4.getZ();
+		
+		Location lo3 = getServer().getWorld("EpicTourney").getBlockAt(x3, 127, z3).getLocation();
+		Location lo4 = getServer().getWorld("EpicTourney").getBlockAt(x4, 1, z4).getLocation();
+	
+		loopThrough(lo3, lo4, getServer().getWorld("EpicTourney"));
+		
+		Location l5 = b.getRelative(BlockFace.SOUTH_WEST,radius).getLocation();
+		int x5 = (int) l5.getX();
+		int z5 = (int) l5.getZ();
+							
+		Location l6 = b.getRelative(BlockFace.NORTH_WEST,radius).getLocation();				
+		int x6 = (int) l6.getX();
+		int z6 = (int) l6.getZ();
+		
+		Location lo5 = getServer().getWorld("EpicTourney").getBlockAt(x5, 127, z5).getLocation();
+		Location lo6 = getServer().getWorld("EpicTourney").getBlockAt(x6, 1, z6).getLocation();
+	
+		loopThrough(lo5, lo6, getServer().getWorld("EpicTourney"));
+		
+		Location l7 = b.getRelative(BlockFace.SOUTH_EAST,radius).getLocation();
+		int x7 = (int) l7.getX();
+		int z7 = (int) l7.getZ();
+							
+		Location l8 = b.getRelative(BlockFace.NORTH_EAST,radius).getLocation();				
+		int x8 = (int) l8.getX();
+		int z8 = (int) l8.getZ();
+		
+		Location lo7 = getServer().getWorld("EpicTourney").getBlockAt(x7, 127, z7).getLocation();
+		Location lo8 = getServer().getWorld("EpicTourney").getBlockAt(x8, 1, z8).getLocation();
+	
+		loopThrough(lo7, lo8, getServer().getWorld("EpicTourney"));
+		
+	}
+	
+	
 	public void stopTounrey() {
 		getServer().broadcastMessage(ChatColor.RED + "Tourney ended!");
+		getServer().getScheduler().cancelTasks(this);
 		active = false;
 		online = false;
 		cancelled = true;
-		players.clear();	
+		players.clear();
+		makeArena2(fiters.size()+1);
 		fiters.clear();	
 		viewers.clear();
-		// TODO: teleport back, restore inv
+		World w = getServer().getWorlds().get(0);
+		for(Player p : getServer().getWorld("EpicTourney").getPlayers()){
+			p.sendMessage(ChatColor.YELLOW + "Welcome home " + p.getName() + "!");
+			p.teleport(w.getSpawnLocation());
+			restoreInventory(p);
+		}
 	}
 	
 	public void loopThrough(Location loc1, Location loc2, World w) {
@@ -294,9 +380,228 @@ public class epictourney extends JavaPlugin {
 			}
 	}
 	
-	public void shrinkArena(int size) {
+	public void clearThrough(Location loc1, Location loc2, World w) {
+		int minx = Math.min(loc1.getBlockX(), loc2.getBlockX()),
+		miny = Math.min(loc1.getBlockY(), loc2.getBlockY()),
+		minz = Math.min(loc1.getBlockZ(), loc2.getBlockZ()),
+		maxx = Math.max(loc1.getBlockX(), loc2.getBlockX()),
+		maxy = Math.max(loc1.getBlockY(), loc2.getBlockY()),
+		maxz = Math.max(loc1.getBlockZ(), loc2.getBlockZ());
+		for(int x = minx; x<=maxx;x++){
+			for(int y = miny; y<=maxy;y++){
+				for(int z = minz; z<=maxz;z++){
+				Block b = w.getBlockAt(x, y, z);
+					if(b != null){
+						b.setTypeId(0);
+					}	
+				}
+			}
+		}
+}
+	
+	public void shrinkArena(int size) {	
+		clearArena();
+		int i = size*getRadius();
+		makeArena1(i);
+	}
+	
+	public void clearArena() {
 
+		int i = 1;
+		for(@SuppressWarnings("unused") Player p:getServer().getOnlinePlayers()){
+			i++;
+		}
+		int radius = getRadius()*i;
+		Block b = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock();
 		
+		Location l1 = b.getRelative(BlockFace.NORTH_WEST,radius).getLocation();
+		int x1 = (int) l1.getX();
+		int z1 = (int) l1.getZ();
+							
+		Location l2 = b.getRelative(BlockFace.NORTH_EAST,radius).getLocation();
+		
+		int x2 = (int) l2.getX();
+		int z2 = (int) l2.getZ();
+		
+		Location lo1 = getServer().getWorld("EpicTourney").getBlockAt(x1, 127, z1).getLocation();
+		Location lo2 = getServer().getWorld("EpicTourney").getBlockAt(x2, 1, z2).getLocation();
+	
+		clearThrough(lo1, lo2, getServer().getWorld("EpicTourney"));
+		
+		Location l3 = b.getRelative(BlockFace.SOUTH_WEST,radius).getLocation();
+		int x3 = (int) l3.getX();
+		int z3 = (int) l3.getZ();
+							
+		Location l4 = b.getRelative(BlockFace.SOUTH_EAST,radius).getLocation();				
+		int x4 = (int) l4.getX();
+		int z4 = (int) l4.getZ();
+		
+		Location lo3 = getServer().getWorld("EpicTourney").getBlockAt(x3, 127, z3).getLocation();
+		Location lo4 = getServer().getWorld("EpicTourney").getBlockAt(x4, 1, z4).getLocation();
+	
+		clearThrough(lo3, lo4, getServer().getWorld("EpicTourney"));
+		
+		Location l5 = b.getRelative(BlockFace.SOUTH_WEST,radius).getLocation();
+		int x5 = (int) l5.getX();
+		int z5 = (int) l5.getZ();
+							
+		Location l6 = b.getRelative(BlockFace.NORTH_WEST,radius).getLocation();				
+		int x6 = (int) l6.getX();
+		int z6 = (int) l6.getZ();
+		
+		Location lo5 = getServer().getWorld("EpicTourney").getBlockAt(x5, 127, z5).getLocation();
+		Location lo6 = getServer().getWorld("EpicTourney").getBlockAt(x6, 1, z6).getLocation();
+	
+		clearThrough(lo5, lo6, getServer().getWorld("EpicTourney"));
+		
+		Location l7 = b.getRelative(BlockFace.SOUTH_EAST,radius).getLocation();
+		int x7 = (int) l7.getX();
+		int z7 = (int) l7.getZ();
+							
+		Location l8 = b.getRelative(BlockFace.NORTH_EAST,radius).getLocation();				
+		int x8 = (int) l8.getX();
+		int z8 = (int) l8.getZ();
+		
+		Location lo7 = getServer().getWorld("EpicTourney").getBlockAt(x7, 127, z7).getLocation();
+		Location lo8 = getServer().getWorld("EpicTourney").getBlockAt(x8, 1, z8).getLocation();
+	
+		clearThrough(lo7, lo8, getServer().getWorld("EpicTourney"));
 		
 	}
+	
+	
+	public void makeArena2(int i) {
+
+		int radius = getRadius()*i;
+		Block b = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock();
+		
+		Location l1 = b.getRelative(BlockFace.NORTH_WEST,radius).getLocation();
+		int x1 = (int) l1.getX();
+		int z1 = (int) l1.getZ();
+							
+		Location l2 = b.getRelative(BlockFace.NORTH_EAST,radius).getLocation();
+		
+		int x2 = (int) l2.getX();
+		int z2 = (int) l2.getZ();
+		
+		Location lo1 = getServer().getWorld("EpicTourney").getBlockAt(x1, 127, z1).getLocation();
+		Location lo2 = getServer().getWorld("EpicTourney").getBlockAt(x2, 1, z2).getLocation();
+	
+		clearThrough(lo1, lo2, getServer().getWorld("EpicTourney"));
+		
+		Location l3 = b.getRelative(BlockFace.SOUTH_WEST,radius).getLocation();
+		int x3 = (int) l3.getX();
+		int z3 = (int) l3.getZ();
+							
+		Location l4 = b.getRelative(BlockFace.SOUTH_EAST,radius).getLocation();				
+		int x4 = (int) l4.getX();
+		int z4 = (int) l4.getZ();
+		
+		Location lo3 = getServer().getWorld("EpicTourney").getBlockAt(x3, 127, z3).getLocation();
+		Location lo4 = getServer().getWorld("EpicTourney").getBlockAt(x4, 1, z4).getLocation();
+	
+		clearThrough(lo3, lo4, getServer().getWorld("EpicTourney"));
+		
+		Location l5 = b.getRelative(BlockFace.SOUTH_WEST,radius).getLocation();
+		int x5 = (int) l5.getX();
+		int z5 = (int) l5.getZ();
+							
+		Location l6 = b.getRelative(BlockFace.NORTH_WEST,radius).getLocation();				
+		int x6 = (int) l6.getX();
+		int z6 = (int) l6.getZ();
+		
+		Location lo5 = getServer().getWorld("EpicTourney").getBlockAt(x5, 127, z5).getLocation();
+		Location lo6 = getServer().getWorld("EpicTourney").getBlockAt(x6, 1, z6).getLocation();
+	
+		clearThrough(lo5, lo6, getServer().getWorld("EpicTourney"));
+		
+		Location l7 = b.getRelative(BlockFace.SOUTH_EAST,radius).getLocation();
+		int x7 = (int) l7.getX();
+		int z7 = (int) l7.getZ();
+							
+		Location l8 = b.getRelative(BlockFace.NORTH_EAST,radius).getLocation();				
+		int x8 = (int) l8.getX();
+		int z8 = (int) l8.getZ();
+		
+		Location lo7 = getServer().getWorld("EpicTourney").getBlockAt(x7, 127, z7).getLocation();
+		Location lo8 = getServer().getWorld("EpicTourney").getBlockAt(x8, 1, z8).getLocation();
+	
+		clearThrough(lo7, lo8, getServer().getWorld("EpicTourney"));
+		
+	}
+	
+
+	  public void restoreInventory(Player player) {
+		    try {
+		      File fichier = new File("plugins/EpicTourney/" + player.getName() + ".dat");
+		      InputStream ips = new FileInputStream(fichier);
+		      InputStreamReader ipsr = new InputStreamReader(ips);
+		      BufferedReader br = new BufferedReader(ipsr);
+		      PlayerInventory inventaire = player.getInventory();
+		      inventaire.clear();
+		      ItemStack[] contenuInventaire = new ItemStack[36];
+
+		      int i = 0;
+		      String ligne;
+		      while ((ligne = br.readLine()) != null)
+		      {
+		        Pattern p = Pattern.compile("(.*):(.*):(.*):(.*);");
+		        Matcher m = p.matcher(ligne);
+		        while (m.find())
+		        {
+		          int itemPos = Integer.valueOf(m.group(1).trim()).intValue();
+		          int itemId = Integer.valueOf(m.group(2).trim()).intValue();
+		          int itemAmount = Integer.valueOf(m.group(3).trim()).intValue();
+		          short itemDurability = (short)Integer.valueOf(m.group(4).trim()).intValue();
+		          if (itemPos == i)
+		            contenuInventaire[i] = new ItemStack(itemId, itemAmount, itemDurability);
+		          else
+		            contenuInventaire[i] = new ItemStack(0);
+		        }
+		        i++;
+		      }
+
+		      for (i = 0; i < contenuInventaire.length; i++)
+		      {
+		        if (contenuInventaire[i] == null)
+		          continue;
+		      }
+		      inventaire.clear();
+		      inventaire.setContents(contenuInventaire);
+		      br.close();
+		      fichier.delete();
+		    } catch (Exception e) {
+		      System.out.println("Erreur : " + e.toString());
+		    }
+		  }
+
+	  public void saveInventory(Player player) {
+	    File fichier = new File("plugins/EpicTourney/" + player.getName() + ".dat");
+	    if (fichier.exists()) {
+	      fichier.delete();
+	    }
+	    else
+	      try
+	      {
+	        fichier.createNewFile();
+	        FileWriter ecrireFichier = new FileWriter("plugins/EpicTourney/" + player.getName() + ".dat");
+	        BufferedWriter out = new BufferedWriter(ecrireFichier);
+	        Inventory inventaire = player.getInventory();
+	        ItemStack[] contenuInventaire = inventaire.getContents();
+
+	        for (int i = 0; i < contenuInventaire.length; i++)
+	        {
+	          if (contenuInventaire[i] == null)
+	            continue;
+	          String toWrite = i + ":" + contenuInventaire[i].getTypeId() + ":" + contenuInventaire[i].getAmount() + ":" + contenuInventaire[i].getDurability() + ";\n";
+	          out.write(toWrite);
+	        }
+	        out.close();
+	        inventaire.clear();
+	      }
+	      catch (IOException localIOException)
+	      {
+	      }
+	  }
+	
 }

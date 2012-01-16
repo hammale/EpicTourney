@@ -1,5 +1,6 @@
 package me.hammale.epictourney;
 
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -29,7 +30,15 @@ public class EpicEntityListener extends EntityListener {
 			 if(e.getEntity() instanceof Player){
 				 Player p = (Player) e.getEntity();
 				 if(plugin.fiters.contains(p.getName())){
-					 plugin.shrinkArena(plugin.fiters.size());
+					 plugin.getServer().broadcastMessage(ChatColor.AQUA + "" + p.getName() + " has been defeated!");
+					 plugin.fiters.remove(p.getName());
+					 if(plugin.fiters.size() > 1){
+						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "Arena shrinking...");
+						 plugin.shrinkArena(plugin.fiters.size());
+					 }else{
+						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "" + plugin.fiters + " has won!");
+						 plugin.stopTounrey();
+					 }
 				 }
 			 }
 		 }
