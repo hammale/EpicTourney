@@ -34,7 +34,7 @@ public class EpicEntityListener extends EntityListener {
 					 plugin.fiters.remove(p.getName());
 					 if(plugin.fiters.size() > 1){
 						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "Arena shrinking...");
-						 plugin.shrinkArena(plugin.fiters.size());
+						 plugin.viewers.add(p.getName());
 					 }else{
 						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "" + plugin.fiters + " has won!");
 						 plugin.stopTounrey();
