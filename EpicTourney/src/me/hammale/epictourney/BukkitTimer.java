@@ -16,7 +16,7 @@ public class BukkitTimer {
 		plugin = plug;
 	}	
 	public void scheduleAtFixedRate(TimerTask tsk, int delay, int step) {
-		id = plugin.getServer().getScheduler().scheduleSyncRepeatingTask(
+		plugin.sid = plugin.getServer().getScheduler().scheduleSyncRepeatingTask(
 		plugin, tsk, delay, step);
 	}
 	

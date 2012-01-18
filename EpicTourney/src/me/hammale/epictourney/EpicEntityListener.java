@@ -1,7 +1,9 @@
 package me.hammale.epictourney;
 
 import org.bukkit.ChatColor;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityListener;
@@ -21,6 +23,15 @@ public class EpicEntityListener extends EntityListener {
 				 if(plugin.viewers.contains(p.getName())){
 					 e.setCancelled(true);
 				 }
+				 if(e instanceof EntityDamageByEntityEvent){
+					 Entity attacker = ((EntityDamageByEntityEvent) e).getDamager();
+			         if (attacker instanceof Player ){
+				            Player attack = (Player) attacker;		            
+				            if(plugin.viewers.contains(attack.getName())) {
+				                e.setCancelled(true);
+				            }    
+				     }
+				}  
 			 }
 		 }
 	}
@@ -34,6 +45,7 @@ public class EpicEntityListener extends EntityListener {
 					 plugin.fiters.remove(p.getName());
 					 if(plugin.fiters.size() > 1){
 						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "Arena shrinking...");
+						 plugin.shrinkArena();
 						 plugin.viewers.add(p.getName());
 					 }else{
 						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "" + plugin.fiters + " has won!");

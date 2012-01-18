@@ -29,7 +29,7 @@ public class EpicPlayerListener extends PlayerListener {
 				 p.sendMessage(ChatColor.GREEN + "Tourney started! Teleporting...");
 				 p.teleport(plugin.getServer().getWorld("EpicTourney").getSpawnLocation());
 				 p.setGameMode(GameMode.CREATIVE);
-				 //plugin.vanishPlayer(p);
+				 plugin.vanishPlayer(p);
 			 }else{
 				 plugin.fiters.add(e.getPlayer().getName());
 				 e.getPlayer().setGameMode(GameMode.SURVIVAL);
@@ -72,6 +72,7 @@ public class EpicPlayerListener extends PlayerListener {
 	 public void onPlayerQuit(PlayerQuitEvent e){
 		 if(plugin.active == true){
 			 Player p = e.getPlayer();
+			 plugin.reappear(p);
 			 if(plugin.viewers.contains(p.getName())){
 				 plugin.viewers.remove(p.getName());
 			 }
@@ -80,6 +81,9 @@ public class EpicPlayerListener extends PlayerListener {
 			 }
 			 if(plugin.spying.contains(p.getName())){
 				 plugin.spying.remove(p.getName());
+			 }
+			 if(plugin.fiters.size() < plugin.getMinPlayers()){
+				 plugin.stopTounrey();
 			 }
 		 }
 	 }
