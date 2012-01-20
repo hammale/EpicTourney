@@ -135,7 +135,6 @@ public class epictourney extends JavaPlugin {
 	
 	public void createWorld(Player p){
 		if(getServer().getWorld("EpicTourney") == null){
-			p.sendMessage(ChatColor.RED + "Generating world...");
 			getServer().createWorld(new WorldCreator("EpicTourney").environment(World.Environment.NORMAL));
 			p.sendMessage(ChatColor.GREEN + "World complete!");
 			teleportToWorldSpawn(getServer().getWorld("EpicTourney"));
@@ -163,10 +162,15 @@ public class epictourney extends JavaPlugin {
 			if(args[0].equalsIgnoreCase("start")){
 					Player p = (Player) sender;
 					if(active == false){
+						for(Player p1 : getServer().getOnlinePlayers()){
+							p1.setGameMode(GameMode.CREATIVE);
+						}
+						getServer().broadcastMessage((ChatColor.RED + "Generating world..."));
 						createWorld(p);
 						active = true;
 					}else{
 						p.sendMessage(ChatColor.RED + "Tourney is already started silly!");
+						return true;
 					}
 				}else if(args[0].equalsIgnoreCase("stop")){
 					stopTounrey();
@@ -178,19 +182,26 @@ public class epictourney extends JavaPlugin {
 	
 	public void teleportToWorldSpawn(World to) {
 		for(World w : getServer().getWorlds()){
-			for (Player p : w.getPlayers().toArray(new Player[0])) {
-				p.sendMessage(ChatColor.GREEN + "Tourney started! Teleporting...");
+			for (final Player p : w.getPlayers().toArray(new Player[0])) {
+				p.setGameMode(GameMode.CREATIVE);
+				p.sendMessage(ChatColor.GREEN + "Teleporting...");
 				saveInventory(p);
 				p.getInventory().clear();
-				p.teleport(to.getSpawnLocation());
-				p.setGameMode(GameMode.CREATIVE);
-				viewers.add(p.getName());
-				vanishPlayer(p);
-				spying.add((p).getName());
-				p.sendMessage(ChatColor.LIGHT_PURPLE + "Welcome to view mode! Tourney starts in " + getTime()/20 + " seconds!");
+
+				getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+
+				    public void run() {
+				    	p.teleport(getServer().getWorld("EpicTourney").getSpawnLocation());
+						viewers.add(p.getName());
+						vanishPlayer(p);
+						spying.add((p).getName());
+						p.sendMessage(ChatColor.LIGHT_PURPLE + "Welcome to view mode! Tourney starts in " + getTime()/20 + " seconds!");
+						startTimer();
+				    }
+				}, 60L);
+					
 			}
-		}
-		startTimer();
+		}		
 	}
 	
 	public void startTimer(){
@@ -226,6 +237,7 @@ public class epictourney extends JavaPlugin {
 	}
 	
 	public void startTourney(){
+		stopViewmode();
 		int i = 0;
 		viewers.clear();
 		for(Player p : getServer().getOnlinePlayers()){
@@ -237,7 +249,6 @@ public class epictourney extends JavaPlugin {
 	//	}
 		old = i;			
 		}
-		stopViewmode();
 		spying.clear();
 		players.clear();
 		getServer().getScheduler().cancelTask(sid);
@@ -272,13 +283,28 @@ public class epictourney extends JavaPlugin {
 			reappear(p);
 			p.sendMessage(ChatColor.YELLOW + "Welcome home " + p.getName() + "!");
 			p.teleport(w.getSpawnLocation());
-			restoreInventory(p);
+			try {
+				restoreInventory(p);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
+       	getServer().unloadWorld(getServer().getWorld("EpicTourney"), false);
 		File dir = new File("EpicTourney");
 		deleteWorld(dir);
 	}
 	
 	public void stopViewmode() {
+		for(Player p : getServer().getWorld("EpicTourney").getPlayers()){
+			Block b = p.getLocation().getBlock();
+			int i = 0;
+			while(b.getTypeId() != 0){
+				b = b.getRelative(BlockFace.DOWN, i);
+				i++;
+			}
+			p.sendMessage("TP'ing...");
+			p.teleport(b.getLocation());
+		}		
 		getServer().getScheduler().cancelTasks(this);
 		id = -1;
 		spying.clear();
@@ -291,16 +317,18 @@ public class epictourney extends JavaPlugin {
 		}
 	}  
 	
-		public void restoreInventory(Player player){
-			
+		public void restoreInventory(Player player) throws IOException{
+			FileInputStream fstream = null;
+			DataInputStream in = null;
+			BufferedReader br = null;
 			try{
 			      Inventory inventaire = player.getInventory();
 			      inventaire.clear();
 			      ItemStack[] contenuInventaire = new ItemStack[36];
 			      
-				  FileInputStream fstream = new FileInputStream("EpicTourney/" + player.getName() + ".dat");
-				  DataInputStream in = new DataInputStream(fstream);
-				  BufferedReader br = new BufferedReader(new InputStreamReader(in));
+				  fstream = new FileInputStream("EpicTourney/" + player.getName() + ".dat");
+				  in = new DataInputStream(fstream);
+				  br = new BufferedReader(new InputStreamReader(in));
 				  String ligne;
 				  int i = 0;
 				  while ((ligne = br.readLine()) != null){
@@ -320,11 +348,16 @@ public class epictourney extends JavaPlugin {
 				        i++;
 				  }
 				  in.close();
+				  br.close();
+				  fstream.close();
 				  if(contenuInventaire != null){
 					  inventaire.addItem(contenuInventaire);
 				  } 
 				    }catch (Exception e){
-				  System.err.println("Error: " + e.getMessage());
+						  in.close();
+						  br.close();
+						  fstream.close();
+				    	System.err.println("Error 1: " + e.getMessage());
 				  }	
 		}
 	  
@@ -350,7 +383,7 @@ public class epictourney extends JavaPlugin {
  
 	        out.close();
 			}catch (Exception e){
-			  System.err.println("Error: " + e.getMessage());
+			  System.err.println("Error 2: " + e.getMessage());
 			}	
 			
 		}
@@ -358,7 +391,6 @@ public class epictourney extends JavaPlugin {
 	  
 	   public boolean deleteWorld(File dir) {
 	        if (dir.isDirectory()) {
-	        	getServer().unloadWorld(getServer().getWorld("EpicTourney"), false);
 	            String[] children = dir.list();
 	            for (int i=0; i<children.length; i++) {
 	                boolean success = deleteWorld(new File(dir, children[i]));
