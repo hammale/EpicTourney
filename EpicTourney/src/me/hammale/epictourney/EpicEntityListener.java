@@ -43,12 +43,20 @@ public class EpicEntityListener extends EntityListener {
 				 if(plugin.fiters.contains(p.getName())){
 					 plugin.getServer().broadcastMessage(ChatColor.AQUA + "" + p.getName() + " has been defeated!");
 					 plugin.fiters.remove(p.getName());
+					 System.out.println(plugin.fiters.size() + ", " + plugin.fiters);
 					 if(plugin.fiters.size() > 1){
 						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "Arena shrinking...");
 						 plugin.shrinkArena();
-						 plugin.viewers.add(p.getName());
+						 if(plugin.isBan() == 1){
+							 	plugin.banned.add(p);
+							    p.setBanned(true);
+							    p.kickPlayer("You have been defeated! Come back when the tourney is over!");
+						 }else{
+							 plugin.viewers.add(p.getName());
+						 }
 					 }else{
 						 plugin.getServer().broadcastMessage(ChatColor.GREEN + "" + plugin.fiters + " has won!");
+						 plugin.winner = plugin.fiters;
 						 plugin.stopTounrey();
 					 }
 				 }

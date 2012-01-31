@@ -15,26 +15,22 @@ public class EpicBlockListener extends BlockListener {
 	 }
 	
 	 public void onBlockPlace(BlockPlaceEvent e){
-		 if(plugin.active == true){
+		 if(plugin.active == true && plugin.iv == false){
 			 Player p = e.getPlayer();
 			 if(plugin.viewers.contains(p.getName())){
 				 e.setCancelled(true);
-				 p.sendMessage(ChatColor.RED + "No can do partner! You're in view mode.");
+				 p.sendMessage(ChatColor.RED + "No can do partner! You're in viewmode.");
 			}
 		 }
 	}
 	 
 	 public void onBlockBreak(BlockBreakEvent e){
-		 if(plugin.active == true){
+		 if(plugin.active == true && plugin.iv == false){
 			 Player p = e.getPlayer();
 			 if(plugin.viewers.contains(p.getName())){
 				 e.setCancelled(true);
-				 p.sendMessage(ChatColor.RED + "No can do partner! You're in view mode.");
+				 p.sendMessage(ChatColor.RED + "No can do partner! You're in viewmode.");
 			}
-			 if(e.getBlock().getTypeId() == 101){
-					 e.getPlayer().sendMessage("NO CAN DO PARTNER!");
-					 e.setCancelled(true);
-			 }
 		 }
 	}  
 }

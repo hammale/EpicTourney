@@ -3,9 +3,9 @@ package me.hammale.epictourney;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerChatEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -22,6 +22,7 @@ public class EpicPlayerListener extends PlayerListener {
 	 public void onPlayerJoin(PlayerJoinEvent e){
 		 if(plugin.active == true){
 			 if(plugin.online == true){
+				 if(plugin.isBan() != 1){
 				 e.setJoinMessage(ChatColor.YELLOW + "" + e.getPlayer().getName() + " joined and entered viewmode.");
 				 Player p = e.getPlayer();
 				 plugin.viewers.add(e.getPlayer().getName());
@@ -29,7 +30,15 @@ public class EpicPlayerListener extends PlayerListener {
 				 p.sendMessage(ChatColor.GREEN + "Tourney started! Teleporting...");
 				 p.teleport(plugin.getServer().getWorld("EpicTourney").getSpawnLocation());
 				 p.setGameMode(GameMode.CREATIVE);
-				 plugin.vanishPlayer(p);
+				 if(plugin.allowSpout() == 1){
+					 plugin.vanishPlayer(p);
+				 }
+				 }else{
+					 	Player p = e.getPlayer();
+					 	plugin.banned.add(p);
+					    p.setBanned(true);
+					    p.kickPlayer("Tourney in progress! Come back when the tourney is over!");
+				 }
 			 }else{
 				 plugin.fiters.add(e.getPlayer().getName());
 				 e.getPlayer().setGameMode(GameMode.SURVIVAL);
@@ -39,30 +48,33 @@ public class EpicPlayerListener extends PlayerListener {
 
 	 public void onPlayerRespawn(PlayerRespawnEvent e){
 		 if(plugin.active == true){
-			 if(plugin.viewers.contains(e.getPlayer().getName())){
+			 	 e.getPlayer().sendMessage("Going back...");
 				 e.getPlayer().teleport(plugin.getServer().getWorld("EpicTourney").getSpawnLocation());
 				 e.getPlayer().setGameMode(GameMode.CREATIVE);
-			 }
 		 }
+	 }
+	 
+	@Override
+	public void onPlayerKick(PlayerKickEvent e)  {
+	   	 if(plugin.active == true){
+	         if(e.getReason().startsWith("You moved too") || e.getReason().startsWith("Flying is not")) {
+	                 e.setCancelled(true);
+	         }
+	   	 }
 	 }
 	 
 	 public void onPlayerMove(PlayerMoveEvent e){
 		 if(plugin.active == true){
-			plugin.checkBoarder(e.getPlayer());
-		 }
-	 }
-	 
-	 public void onPlayerChat(PlayerChatEvent e){
-		 if(plugin.active == true){
-			 if(plugin.viewers.contains(e.getPlayer().getName())){
-				 e.setCancelled(true);
-				 e.getPlayer().sendMessage(ChatColor.RED + "Shhh you're in viewmode!");
-			 }
+			if((plugin.checkBoarder(e.getPlayer()) == false && plugin.viewers.contains(e.getPlayer().getName())) || plugin.na == true){
+				e.setCancelled(true);
+			}else{
+				plugin.checkBoarder(e.getPlayer());
+			}
 		 }
 	 }
 	 
 	 public void onPlayerDropItem(PlayerDropItemEvent e){
-		 if(plugin.active == true){
+		 if(plugin.active == true  && plugin.iv == false){
 			 if(plugin.viewers.contains(e.getPlayer().getName())){
 				 e.setCancelled(true);
 			 }

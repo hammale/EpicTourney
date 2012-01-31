@@ -1,15 +1,14 @@
 package me.hammale.epictourney;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,7 +26,6 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -38,7 +36,6 @@ import org.bukkit.event.Event;
 import org.bukkit.event.Event.Priority;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -52,22 +49,27 @@ public class epictourney extends JavaPlugin {
 	private final EpicPlayerListener playerListener = new EpicPlayerListener(this);
 	private final EpicEntityListener entityListener = new EpicEntityListener(this);
 	private final EpicBlockListener blockListener = new EpicBlockListener(this);
-	private final EpicWorldListener worldListener = new EpicWorldListener(this);
 	
 	  public HashMap<String, ArrayList<String>> playerHideTree = new HashMap<String, ArrayList<String>>();
 	  public HashSet<String> commonPlayers = new HashSet<String>();
 	  public final HashMap<String, Integer> schedulers = new HashMap<String, Integer>();	  
 	  public HashMap<String, BukkitTimer> timers = new HashMap<String, BukkitTimer>();
 	  public HashSet<String> spying = new HashSet<String>();
-	
+	  public HashSet<String> total = new HashSet<String>();
+	  public HashSet<String> winner = null;	
+	  
 	public ArrayList<String> players = new ArrayList<String>();
-	public ArrayList<String> fiters = new ArrayList<String>();
+	public HashSet<String> fiters = new HashSet<String>();
+	public HashSet<Player> banned = new HashSet<Player>();
 	public ArrayList<String> viewers = new ArrayList<String>();
-		
+	
 	public boolean active = false;
 	public boolean online = false;
 	public boolean cancelled = false;
 	public boolean fixWorld = false;
+	public boolean na = true;;
+	public boolean iv = true;
+	public boolean real = false;
 	
 	int id = 0;
 	int sid = -1;
@@ -82,16 +84,15 @@ public class epictourney extends JavaPlugin {
 		log.info("[EpicTourney] Version: " + pdfFile.getVersion() + " Enabled!");	
 		PluginManager pm = getServer().getPluginManager();
 		pm.registerEvent(Event.Type.PLAYER_JOIN, playerListener, Priority.Normal, this);
-		pm.registerEvent(Event.Type.PLAYER_CHAT, playerListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.PLAYER_RESPAWN, playerListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.PLAYER_QUIT, playerListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.PLAYER_MOVE, playerListener, Priority.Normal, this);
+		pm.registerEvent(Event.Type.PLAYER_KICK, playerListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.PLAYER_DROP_ITEM, playerListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.ENTITY_DAMAGE, entityListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.ENTITY_DEATH, entityListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.BLOCK_PLACE, blockListener, Priority.Normal, this);
 		pm.registerEvent(Event.Type.BLOCK_BREAK, blockListener, Priority.Normal, this);
-		pm.registerEvent(Event.Type.WORLD_LOAD, worldListener, Priority.Normal, this);		
 	}
 	
 	@Override
@@ -107,9 +108,17 @@ public class epictourney extends JavaPlugin {
 	    String path = "ViewTime";
 	    String path1 = "RadiusPerPlayer";
 	    String path2 = "MinPlayers";
+	    String path3 = "BanOnDeath";
+	    String path4 = "AutoRestart";
+	    String path5 = "AllowInvisibility";
+	    String path6 = "Log";
 	    config.addDefault(path, 60);
 	    config.addDefault(path1, 30);
 	    config.addDefault(path2, 2);
+	    config.addDefault(path3, 0);
+	    config.addDefault(path4, 0);
+	    config.addDefault(path5, 1);
+	    config.addDefault(path6, 1);
 	    config.options().copyDefaults(true);
 	    saveConfig();
 	}
@@ -121,9 +130,33 @@ public class epictourney extends JavaPlugin {
 	    return amnt;
 	}
 	
+	public int allowSpout(){
+	    config = getConfig();
+	    int amnt = config.getInt("AllowInvisibility"); 
+	    return amnt;
+	}
+	
+	public int getLog(){
+	    config = getConfig();
+	    int amnt = config.getInt("Log"); 
+	    return amnt;
+	}
+	
 	public int getRadius(){
 	    config = getConfig();
 	    int amnt = config.getInt("RadiusPerPlayer");
+	    return amnt;
+	}
+	
+	public int isBan(){
+	    config = getConfig();
+	    int amnt = config.getInt("BanOnDeath");
+	    return amnt;
+	}
+	
+	public int isAuto(){
+	    config = getConfig();
+	    int amnt = config.getInt("AutoRestart");
 	    return amnt;
 	}
 	
@@ -133,10 +166,10 @@ public class epictourney extends JavaPlugin {
 	    return amnt;
 	}
 	
-	public void createWorld(Player p){
+	public void createWorld(){
 		if(getServer().getWorld("EpicTourney") == null){
 			getServer().createWorld(new WorldCreator("EpicTourney").environment(World.Environment.NORMAL));
-			p.sendMessage(ChatColor.GREEN + "World complete!");
+			getServer().broadcastMessage(ChatColor.GREEN + "World complete!");
 			teleportToWorldSpawn(getServer().getWorld("EpicTourney"));
 		}else{
 			teleportToWorldSpawn(getServer().getWorld("EpicTourney"));
@@ -162,17 +195,16 @@ public class epictourney extends JavaPlugin {
 			if(args[0].equalsIgnoreCase("start")){
 					Player p = (Player) sender;
 					if(active == false){
-						for(Player p1 : getServer().getOnlinePlayers()){
-							p1.setGameMode(GameMode.CREATIVE);
-						}
+						fiters.clear();
 						getServer().broadcastMessage((ChatColor.RED + "Generating world..."));
-						createWorld(p);
+						createWorld();
 						active = true;
 					}else{
 						p.sendMessage(ChatColor.RED + "Tourney is already started silly!");
 						return true;
 					}
 				}else if(args[0].equalsIgnoreCase("stop")){
+					real = true;
 					stopTounrey();
 				}
 			}	
@@ -181,21 +213,28 @@ public class epictourney extends JavaPlugin {
 	}
 	
 	public void teleportToWorldSpawn(World to) {
-		for(World w : getServer().getWorlds()){
+		for(final World w : getServer().getWorlds()){
 			for (final Player p : w.getPlayers().toArray(new Player[0])) {
-				p.setGameMode(GameMode.CREATIVE);
 				p.sendMessage(ChatColor.GREEN + "Teleporting...");
 				saveInventory(p);
 				p.getInventory().clear();
+				p.setGameMode(GameMode.SURVIVAL);
 
 				getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 
-				    public void run() {
-				    	p.teleport(getServer().getWorld("EpicTourney").getSpawnLocation());
+				    public void run() {			    	
+						int i = 0;
+						for (final Player p : w.getPlayers().toArray(new Player[0])) {
+				    	p.teleport(getServer().getWorld("EpicTourney").getSpawnLocation().getBlock().getRelative(BlockFace.NORTH, i).getLocation());
+				    	i++;
+						}
 						viewers.add(p.getName());
-						vanishPlayer(p);
-						spying.add((p).getName());
+						if(allowSpout() == 1){
+							vanishPlayer(p);
+							spying.add((p).getName());
+						}
 						p.sendMessage(ChatColor.LIGHT_PURPLE + "Welcome to view mode! Tourney starts in " + getTime()/20 + " seconds!");
+						na = false;
 						startTimer();
 				    }
 				}, 60L);
@@ -237,19 +276,25 @@ public class epictourney extends JavaPlugin {
 	}
 	
 	public void startTourney(){
+		//markBorder();
 		stopViewmode();
 		int i = 0;
 		viewers.clear();
 		for(Player p : getServer().getOnlinePlayers()){
+			p.setHealth(20);
+			total.add(p.getName());
 			fiters.add(p.getName());
 			p.setGameMode(GameMode.SURVIVAL);
-			reappear(p);
+			if(allowSpout() == 1){
+				reappear(p);
+			}
 			p.getInventory().clear();
 			i++;
-	//	}
 		old = i;			
 		}
-		spying.clear();
+		if(allowSpout() == 1){
+			spying.clear();
+		}
 		players.clear();
 		getServer().getScheduler().cancelTask(sid);
 		if(fiters.size() < getMinPlayers()){
@@ -267,11 +312,48 @@ public class epictourney extends JavaPlugin {
 	}
 	
 	public void stopTounrey() {
+		if(real == true){
+			real = false;
+			for(Player p:banned){
+				p.setBanned(false);
+			}
+			getServer().broadcastMessage(ChatColor.RED + "Tourney ended!");
+			getServer().getScheduler().cancelTasks(this);
+			active = false;
+			online = false;
+			cancelled = false;
+			iv = true;
+			id = -1;
+			fixWorld = false;
+			players.clear();
+			fiters.clear();	
+			viewers.clear();
+			spying.clear();
+			World w = getServer().getWorlds().get(0);
+			for(Player p : getServer().getWorld("EpicTourney").getPlayers()){
+				reappear(p);
+				p.sendMessage(ChatColor.YELLOW + "Welcome home " + p.getName() + "!");
+				p.teleport(w.getSpawnLocation());
+				try {
+					restoreInventory(p);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+	       	getServer().unloadWorld(getServer().getWorld("EpicTourney"), false);
+			File dir = new File("EpicTourney");
+			deleteWorld(dir);
+		}else{
+		real = false;
+		for(Player p:banned){
+			p.setBanned(false);
+		}
 		getServer().broadcastMessage(ChatColor.RED + "Tourney ended!");
 		getServer().getScheduler().cancelTasks(this);
 		active = false;
 		online = false;
 		cancelled = false;
+		iv = true;
 		id = -1;
 		fixWorld = false;
 		players.clear();
@@ -292,19 +374,81 @@ public class epictourney extends JavaPlugin {
        	getServer().unloadWorld(getServer().getWorld("EpicTourney"), false);
 		File dir = new File("EpicTourney");
 		deleteWorld(dir);
+		if(isAuto() == 1){
+			fiters.clear();
+			getServer().broadcastMessage((ChatColor.RED + "Generating world..."));
+			createWorld();
+			active = true;
+		}
+		}
+		logTourney();
+		winner.clear();
+		total.clear();
 	}
 	
-	public void stopViewmode() {
-		for(Player p : getServer().getWorld("EpicTourney").getPlayers()){
-			Block b = p.getLocation().getBlock();
-			int i = 0;
-			while(b.getTypeId() != 0){
-				b = b.getRelative(BlockFace.DOWN, i);
-				i++;
+	public void logTourney(){
+		if(getLog() == 1){
+			makeFolder();
+			addLog();
+		}
+	}
+	
+	public void makeFolder(){
+			File file = new File("plugins/EpicTourney/logs");
+			boolean exists = file.exists();
+			if (!exists) {
+				try{
+					if(file.mkdir()){
+						System.out.println("[EpicTourney] Directory created!");
+					}else{
+						System.out.println("[EpicTourney] ERROR! Directory not created!");
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
 			}
-			p.sendMessage("TP'ing...");
-			p.teleport(b.getLocation());
-		}		
+		  }
+		  
+		public void addLog() {
+		try{
+			
+		java.util.Date date= new java.util.Date();
+		File file = new File("plugins/EpicTourney/logs/" + new Timestamp(date.getTime()) + ".log");
+
+		        Scanner scan = null;
+		        String str = null;
+		  
+		        if (file.exists()) {
+		            scan = new java.util.Scanner(file);
+		            str = scan.nextLine();
+		            while (scan.hasNextLine()) {
+		                str = str.concat("\n" + scan.nextLine());
+		            }
+		        }
+		        
+		        PrintWriter out = new PrintWriter(new FileWriter(file, true));
+				String time = ("Time: " + new Timestamp(date.getTime()));
+		        String o = ("Winner: " + winner);
+				String t = ("Entrants: ");
+				out.println(time);
+				out.println(o);
+				out.print(t);
+		        for(String s : total){
+					str = (s);	        
+					out.println(str);
+		        }	
+		        
+		        out.close();
+		        scan.close();
+		}catch (Exception e){
+		System.err.println("Error: " + e.getMessage());
+		}
+
+		}
+	
+	
+	public void stopViewmode() {
+		iv = false;
 		getServer().getScheduler().cancelTasks(this);
 		id = -1;
 		spying.clear();
@@ -317,6 +461,7 @@ public class epictourney extends JavaPlugin {
 		}
 	}  
 	
+		@SuppressWarnings("deprecation")
 		public void restoreInventory(Player player) throws IOException{
 			FileInputStream fstream = null;
 			DataInputStream in = null;
@@ -340,10 +485,11 @@ public class epictourney extends JavaPlugin {
 				          int itemId = Integer.valueOf(m.group(2).trim()).intValue();
 				          int itemAmount = Integer.valueOf(m.group(3).trim()).intValue();
 				          short itemDurability = (short)Integer.valueOf(m.group(4).trim()).intValue();
-				          if (itemPos == i)
+				          if (itemPos == i){
 				            contenuInventaire[i] = new ItemStack(itemId, itemAmount, itemDurability);
-				          else
+				          }else{
 				            contenuInventaire[i] = new ItemStack(0);
+				          }		          
 				        }
 				        i++;
 				  }
@@ -352,7 +498,8 @@ public class epictourney extends JavaPlugin {
 				  fstream.close();
 				  if(contenuInventaire != null){
 					  inventaire.addItem(contenuInventaire);
-				  } 
+				  }
+				  player.updateInventory();
 				    }catch (Exception e){
 						  in.close();
 						  br.close();
@@ -452,7 +599,7 @@ public class epictourney extends JavaPlugin {
 			  playerHideTree.get(p1.getName()).add(p2.getName());
 			  } catch (Exception e) {
 			  // Why would I care about some networking exceptions? Ha ha ha...
-			  //}
+				  e.printStackTrace();
 			  }
 			  }
 		}
@@ -518,7 +665,7 @@ public class epictourney extends JavaPlugin {
 			  playerHideTree.remove(player.getName());
 		}
 
-		public void checkBoarder(Player p) {
+		public boolean checkBoarder(Player p) {
 			if(size == -1){
 				size = fiters.size()*getRadius();
 			}else if(size == 0){
@@ -542,17 +689,66 @@ public class epictourney extends JavaPlugin {
 			
 			if(dis > size){
 				outOfBounds(p);
+				return false;
 			}else if(dis+5 > size){
 				p.sendMessage(ChatColor.RED + "" + p.getName() + " you're near the boarder!");
+				return true;
 			}
+			return true;
 		}
 		
+//		public void markBorder(){
+//			int size = (getRadius()*fiters.size())-1;
+//			Location ne = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock().getRelative(BlockFace.NORTH_EAST, size).getLocation();
+//			Location se = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock().getRelative(BlockFace.SOUTH_EAST, size).getLocation();
+//			Location nw = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock().getRelative(BlockFace.NORTH_WEST, size).getLocation();
+//			Location sw = getServer().getWorld("EpicTourney").getSpawnLocation().getBlock().getRelative(BlockFace.SOUTH_WEST, size).getLocation();
+//			
+//			loopThrough(ne, se);
+//			loopThrough(nw, sw);
+//			loopThrough(ne, se);
+//			loopThrough(nw, sw);
+//			
+//		}
+//		
+//		  public void loopThrough(Location loc1, Location loc2) {
+//			  int minx = Math.min(loc1.getBlockX(), loc2.getBlockX()),
+//			  miny = Math.min(loc1.getBlockY(), loc2.getBlockY()),
+//			  minz = Math.min(loc1.getBlockZ(), loc2.getBlockZ()),
+//			  maxx = Math.max(loc1.getBlockX(), loc2.getBlockX()),
+//			  maxy = Math.max(loc1.getBlockY(), loc2.getBlockY()),
+//			  maxz = Math.max(loc1.getBlockZ(), loc2.getBlockZ());
+//			  for(int x = minx; x<=maxx;x++){
+//				  for(int y = miny; y<=maxy;y++){
+//					  for(int z = minz; z<=maxz;z++)
+//					  {
+//						  Block b = getServer().getWorld("EpicTourney").getBlockAt(x, y, z);
+////						  if(b.getRelative(BlockFace.UP,1).getTypeId() == 0 && b.getRelative(BlockFace.DOWN,1).getTypeId() != 0){
+////							  if(b.getRelative(BlockFace.DOWN,1).getTypeId() == 8 || b.getRelative(BlockFace.DOWN,1).getTypeId() == 9){
+////								  b.setType(Material.ICE);
+////							  }else if(b.getRelative(BlockFace.DOWN,1).getTypeId() == 10 || b.getRelative(BlockFace.DOWN,1).getTypeId() == 11){
+////								  b.setType(Material.OBSIDIAN);
+////							  }else{
+////								  b.setType(Material.YELLOW_FLOWER);
+////							  }
+////						  }
+//						  if(b.getTypeId() == 0){
+//							  b.setTypeId(102);
+//						  }
+//					  }
+//				  }
+//			  }
+//		  }
+		
 		public void outOfBounds(Player p){
-			p.sendMessage(ChatColor.RED + "" + p.getName() + " you're out of bounds! Get back in the fight!");
-			p.damage(1);
+			if(na == false){
+				p.sendMessage(ChatColor.RED + "" + p.getName() + " you're out of bounds! Get back in the fight!");
+				p.damage(1);
+			}
 		}
 
 		public void shrinkArena() {
+			//markBorder();
 			final int quit = (fiters.size()*getRadius())+getRadius();
 			final int check = fiters.size()*getRadius();
 			id = getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
@@ -567,6 +763,5 @@ public class epictourney extends JavaPlugin {
 			    }
 			    }
 			}, 60L);
-		}
-		
+		}		
 }
